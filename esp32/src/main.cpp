@@ -555,6 +555,46 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
       </div>
     </div>
 
+    <!-- Countdown Timer Card -->
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-header" style="border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 10px; margin-bottom: 10px;">
+        <div class="pin-info">
+          <span class="pin-title">Hẹn giờ đếm ngược</span>
+          <span class="pin-subtitle">Bật thiết bị sau khoảng thời gian đếm ngược</span>
+        </div>
+      </div>
+      <div>
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 10px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <span style="font-size: 0.9rem; color: var(--text-muted); min-width: 80px;">Thiết bị:</span>
+            <select id="timer-pin" style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; color: #fff; padding: 10px 14px; font-size: 0.95rem; outline: none;">
+              <option value="D0">Pin D0 - Aux Relay</option>
+              <option value="D1">Pin D1 - Water Pump</option>
+              <option value="D2">Pin D2 - Solenoid Valve</option>
+              <option value="D3">Pin D3 - Indicator LED</option>
+              <option value="D4">Pin D4 - Onboard LED</option>
+            </select>
+          </div>
+
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;">
+            <span style="font-size: 0.9rem; color: var(--text-muted); min-width: 80px;">Số giây:</span>
+            <input type="number" id="timer-duration" min="1" max="999" value="10" style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; color: #fff; padding: 8px 14px; font-size: 0.95rem; outline: none;">
+          </div>
+
+          <div style="display: flex; gap: 10px; margin-top: 5px;">
+            <button id="btn-start-timer" onclick="startCountdownTimer()" style="flex: 1; background: var(--primary); border: none; color: #fff; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px var(--primary-glow);">Bắt đầu</button>
+            <button id="btn-cancel-timer" onclick="cancelCountdownTimer()" style="background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.25); color: #ef4444; padding: 12px 18px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: none;">Hủy</button>
+          </div>
+        </div>
+
+        <!-- Local Visual Countdown -->
+        <div id="local-countdown-container" style="margin-top: 15px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 15px; display: none; text-align: center;">
+          <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 5px;">Đang đếm ngược thiết bị <span id="local-countdown-pin" style="color:#fff; font-weight:600;">--</span>:</div>
+          <div id="local-countdown-val" style="font-size: 2.5rem; font-weight: 800; color: var(--primary); text-shadow: 0 0 15px var(--primary-glow);">0</div>
+        </div>
+      </div>
+    </div>
+
     <div class="flex-row" style="justify-content: center; margin-top: 15px;">
       <span class="status-badge" id="status">Connecting Cloud...</span>
     </div>
@@ -880,6 +920,53 @@ const char INDEX_HTML[] PROGMEM = R"rawliteral(
         renderSchedules();
         publishCommand(3, "SCHED", "CLEAR", "0");
       }
+    }
+
+    // Countdown Timer Functions
+    let countdownInterval = null;
+    let localRemaining = 0;
+
+    function startCountdownTimer() {
+      const pin = document.getElementById('timer-pin').value;
+      const duration = parseInt(document.getElementById('timer-duration').value);
+      if (isNaN(duration) || duration <= 0) {
+        alert('Vui lòng nhập số giây hợp lệ!');
+        return;
+      }
+
+      // Publish start countdown: 3,TIMER,START,pin,duration
+      publishCommand(3, "TIMER", "START", `${pin},${duration}`);
+
+      // Start local UI countdown
+      clearInterval(countdownInterval);
+      localRemaining = duration;
+      document.getElementById('local-countdown-pin').innerText = pin;
+      document.getElementById('local-countdown-val').innerText = localRemaining;
+      document.getElementById('local-countdown-container').style.display = 'block';
+      document.getElementById('btn-cancel-timer').style.display = 'block';
+
+      countdownInterval = setInterval(() => {
+        localRemaining--;
+        if (localRemaining <= 0) {
+          clearInterval(countdownInterval);
+          document.getElementById('local-countdown-container').style.display = 'none';
+          document.getElementById('btn-cancel-timer').style.display = 'none';
+          // Update the switch state locally
+          const switchEl = document.getElementById(`${pin.toLowerCase()}-switch`);
+          if (switchEl) switchEl.checked = true;
+          alert(`Đã kích hoạt BẬT thiết bị ${pin} sau khi đếm ngược xong!`);
+        } else {
+          document.getElementById('local-countdown-val').innerText = localRemaining;
+        }
+      }, 1000);
+    }
+
+    function cancelCountdownTimer() {
+      clearInterval(countdownInterval);
+      document.getElementById('local-countdown-container').style.display = 'none';
+      document.getElementById('btn-cancel-timer').style.display = 'none';
+      // Publish cancel: 3,TIMER,CANCEL,0
+      publishCommand(3, "TIMER", "CANCEL", "0");
     }
 
     // Wi-Fi Configuration Modal Functions

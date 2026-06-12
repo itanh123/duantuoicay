@@ -138,12 +138,40 @@ scroll_delay_sec = 0.04
 schedules = []
 last_triggered_min = ""
 
+# Biến đếm ngược (Countdown Timer)
+countdown_seconds = None
+countdown_pin = None
+countdown_lock = threading.Lock()
+
+
 def trigger_matrix_event(pattern, duration_sec=1.5):
     global matrix_event_data, matrix_event_time
     if not matrix_enabled:
         return
     matrix_event_data = pattern
     matrix_event_time = time.time() + duration_sec
+
+def countdown_thread_func():
+    global countdown_seconds, countdown_pin
+    print(f"Luong dem nguoc thiet bi bat dau: {countdown_pin} trong {countdown_seconds}s")
+    while True:
+        time.sleep(1)
+        with countdown_lock:
+            if countdown_seconds is None:
+                print("Luong dem nguoc bi huy.")
+                break
+            
+            countdown_seconds -= 1
+            print(f"[Countdown] Con lai: {countdown_seconds}s")
+            
+            if countdown_seconds <= 0:
+                print(f"[Countdown] Den 0! Kich hoat Bat Pin {countdown_pin}")
+                if countdown_pin in leds:
+                    leds[countdown_pin].on()
+                    trigger_matrix_event(PATTERN_ON, duration_sec=2.0)
+                countdown_seconds = None
+                countdown_pin = None
+                break
 
 # --- CẤU HÌNH MQTT ---
 MQTT_SERVER = "broker.hivemq.com"
@@ -202,6 +230,23 @@ def on_message(client, userdata, msg):
             elif action == "CLEAR":
                 schedules = []
                 print("-> Da xoa sach lich hen gio")
+                trigger_matrix_event(PATTERN_OFF)
+            return
+
+        # Nhận lệnh đếm ngược từ Web: 3,TIMER,START,pin,duration hoặc 3,TIMER,CANCEL,0
+        if board_id == 3 and pin_name == "TIMER":
+            global countdown_seconds, countdown_pin
+            if action == "START":
+                with countdown_lock:
+                    countdown_pin = parts[3].upper()
+                    countdown_seconds = int(parts[4])
+                t = threading.Thread(target=countdown_thread_func, daemon=True)
+                t.start()
+            elif action == "CANCEL":
+                with countdown_lock:
+                    countdown_seconds = None
+                    countdown_pin = None
+                print("-> Da huy lenh dem nguoc")
                 trigger_matrix_event(PATTERN_OFF)
             return
 
@@ -271,6 +316,37 @@ def matrix_scroll_loop():
             for r in range(8):
                 write_reg(r + 1, matrix_event_data[r])
             time.sleep(0.1)
+            continue
+            
+        # Kiểm tra hiển thị đếm ngược (Countdown)
+        global countdown_seconds
+        if countdown_seconds is not None:
+            sec_str = str(countdown_seconds)
+            if len(sec_str) == 1:
+                # Single digit: display statically
+                pattern = FONT.get(sec_str, FONT[' '])
+                for r in range(8):
+                    write_reg(r + 1, pattern[r])
+                time.sleep(0.05)
+            else:
+                # Double/triple digits: scroll it
+                text = f"  {sec_str}  "
+                L = len(text)
+                for offset in range((L - 1) * 8):
+                    if countdown_seconds is None or len(str(countdown_seconds)) == 1:
+                        break
+                    if matrix_event_data is not None and time.time() < matrix_event_time:
+                        break
+                    char_idx = offset // 8
+                    pixel_shift = offset % 8
+                    for r in range(8):
+                        char_curr = text[char_idx]
+                        char_next = text[char_idx + 1] if char_idx + 1 < L else ' '
+                        val_curr = FONT.get(char_curr, FONT[' '])[r]
+                        val_next = FONT.get(char_next, FONT[' '])[r]
+                        byte_to_show = ((val_curr << pixel_shift) | (val_next >> (8 - pixel_shift))) & 0xFF
+                        write_reg(r + 1, byte_to_show)
+                    time.sleep(0.05)
             continue
             
         # Hiển thị cuộn Nhiệt độ & Độ ẩm
