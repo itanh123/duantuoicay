@@ -469,6 +469,34 @@
         console.log("MQTT Client not connected. Retrying connect...");
         connectMQTT();
       }
+    function togglePin(pin, el) {
+      const state = el.checked ? 'ON' : 'OFF';
+      publishCommand(currentBoard, pin, state, 0);
+    }
+
+    function toggleBlink(pin, el) {
+      const enabled = el.checked;
+      const lower = pin.toLowerCase();
+      document.getElementById(`${lower}-speed-section`).style.display = enabled ? 'block' : 'none';
+      
+      const manualSwitch = document.getElementById(`${lower}-switch`);
+      manualSwitch.disabled = enabled;
+      manualSwitch.parentElement.parentElement.style.opacity = enabled ? '0.35' : '1';
+      
+      if (enabled) {
+        const speedVal = document.getElementById(`${lower}-speed-slider`).value;
+        const delayMs = Math.round(1000 / (2 * speedVal));
+        publishCommand(currentBoard, pin, "BLINK", delayMs);
+      } else {
+        publishCommand(currentBoard, pin, "STOPBLINK", 0);
+      }
+    }
+
+    function changeSpeed(pin, val) {
+      const lower = pin.toLowerCase();
+      document.getElementById(`${lower}-speed-val`).innerText = val + ' Hz';
+      const delayMs = Math.round(1000 / (2 * val));
+      publishCommand(currentBoard, pin, "BLINK", delayMs);
     }
 
     // Initialize UI and Connect MQTT
