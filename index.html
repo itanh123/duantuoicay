@@ -320,6 +320,22 @@
       </div>
     </div>
 
+    <!-- LED Matrix Custom Text Card -->
+    <div class="card" style="margin-bottom: 20px;">
+      <div class="card-header" style="border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 10px; margin-bottom: 10px;">
+        <div class="pin-info">
+          <span class="pin-title">Gửi chữ lên LED Matrix</span>
+          <span class="pin-subtitle">Nhập chữ để chạy trên màn hình</span>
+        </div>
+      </div>
+      <div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+          <input type="text" id="matrix-text-input" placeholder="Nhập chữ không dấu (ví dụ: HELLO)" style="flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 12px; color: #fff; padding: 10px 14px; font-size: 0.95rem; outline: none; transition: border-color 0.3s;">
+          <button onclick="sendMatrixText()" style="background: var(--primary); border: none; color: #fff; padding: 0 20px; border-radius: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; box-shadow: 0 4px 12px var(--primary-glow);">Gửi</button>
+        </div>
+      </div>
+    </div>
+
     <div class="flex-row" style="justify-content: center; margin-top: 15px;">
       <span class="status-badge" id="status">Connecting Cloud...</span>
     </div>
@@ -520,6 +536,17 @@
     function changeMatrixSpeed(val) {
       document.getElementById('matrix-speed-val').innerText = val + ' ms';
       publishCommand(3, "MATRIX", "SPEED", val);
+    }
+
+    function sendMatrixText() {
+      const input = document.getElementById('matrix-text-input');
+      const text = input.value.trim();
+      if (!text) {
+        alert('Vui lòng nhập chữ cần chạy!');
+        return;
+      }
+      publishCommand(3, "MATRIX", "TEXT", text);
+      input.value = ''; // Clear input
     }
 
     // Initialize UI and Connect MQTT
