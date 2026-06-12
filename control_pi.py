@@ -356,6 +356,9 @@ def matrix_scroll_loop():
             
             # Cuộn từng cột điểm ảnh (pixel)
             for offset in range((L - 1) * 8):
+                # Nếu có đếm ngược, ngắt cuộn chữ lập tức
+                if countdown_seconds is not None:
+                    break
                 # Nếu có sự kiện đột xuất, ngắt cuộn chữ lập tức
                 if matrix_event_data is not None and time.time() < matrix_event_time:
                     break
