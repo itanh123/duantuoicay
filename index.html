@@ -469,6 +469,7 @@
         console.log("MQTT Client not connected. Retrying connect...");
         connectMQTT();
       }
+    }
     function togglePin(pin, el) {
       const state = el.checked ? 'ON' : 'OFF';
       publishCommand(currentBoard, pin, state, 0);
